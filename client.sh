@@ -5,6 +5,17 @@ ACCOUNTS="$HOME/.config/sophos/accounts"
 COOKIE="$HOME/.config/sophos/cookies"
 
 KEEPALIVE=170
+
+# Millisecond timestamp. BSD date (macOS) has no %N, so fall back to seconds*1000.
+now_ms() {
+    local MS
+    MS=$(date +%s%3N 2>/dev/null)
+    if [[ "$MS" =~ ^[0-9]+$ ]]; then
+        echo "$MS"
+    else
+        echo "$(date +%s)000"
+    fi
+}
 RETRY_DELAY=30
 
 # A SIGUSR1 (sent by `sophos retry`) forces the client to drop the current
@@ -21,9 +32,11 @@ if [[ ! -f "$ACCOUNTS" ]]; then
     exit 1
 fi
 
-mapfile -t ACCOUNT_LIST < <(
-    sed '/^[[:space:]]*#/d;/^[[:space:]]*$/d' "$ACCOUNTS"
-)
+# Portable read loop (macOS ships bash 3.2, which has no mapfile).
+ACCOUNT_LIST=()
+while IFS= read -r LINE || [[ -n "$LINE" ]]; do
+    ACCOUNT_LIST+=("$LINE")
+done < <(sed '/^[[:space:]]*#/d;/^[[:space:]]*$/d' "$ACCOUNTS")
 
 COUNT=${#ACCOUNT_LIST[@]}
 
@@ -48,7 +61,7 @@ login() {
         --data-urlencode "mode=191" \
         --data-urlencode "username=$USER" \
         --data-urlencode "password=$PASS" \
-        --data-urlencode "a=$(date +%s%3N)" \
+        --data-urlencode "a=$(now_ms)" \
         --data-urlencode "producttype=0" \
         "$HOST/login.xml")
 
@@ -71,7 +84,7 @@ keepalive() {
         -G \
         --data-urlencode "mode=192" \
         --data-urlencode "username=$(printf '%s' "$USER" | tr '[:upper:]' '[:lower:]')" \
-        --data-urlencode "a=$(date +%s%3N)" \
+        --data-urlencode "a=$(now_ms)" \
         --data-urlencode "producttype=0" \
         "$HOST/live")
 

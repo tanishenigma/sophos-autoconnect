@@ -2,6 +2,51 @@
 
 SERVICE="sophos.service"
 
+# macOS: the client runs as a launchd agent managed by `brew services`
+# (label sh.brew.sophos, or homebrew.mxcl.sophos on older Homebrew). Linux: a systemd user unit.
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    LOG="$(brew --prefix 2>/dev/null)/var/log/sophos.log"
+
+    mac_pid() {
+        # Newer Homebrew labels services sh.brew.<name>; older ones homebrew.mxcl.<name>.
+        local LABEL PID
+        for LABEL in sh.brew.sophos homebrew.mxcl.sophos; do
+            PID=$(launchctl list "$LABEL" 2>/dev/null | awk -F'= ' '/"PID"/ {gsub(/;/, "", $2); print $2}')
+            [[ -n "$PID" ]] && { echo "$PID"; return; }
+        done
+    }
+
+    case "$1" in
+        start|"")   brew services start sophos ;;
+        stop)       brew services stop sophos ;;
+        restart)    brew services restart sophos ;;
+        status)
+            brew services info sophos
+            ;;
+        logs)       tail -n 50 -f "$LOG" ;;
+        retry|force)
+            PID=$(mac_pid)
+            if [[ -z "$PID" ]]; then
+                echo "Service is not running; start it first."
+                exit 1
+            fi
+            kill -USR1 "$PID" && echo "Forced retry: searching for another account..."
+            ;;
+        enable)     brew services start sophos ;;
+        *)
+            echo "Usage:"
+            echo "  sophos          Start (and run at login)"
+            echo "  sophos stop     Stop"
+            echo "  sophos restart  Restart"
+            echo "  sophos retry    Force an immediate account re-search"
+            echo "  sophos status   Status"
+            echo "  sophos logs     Live logs"
+            echo "  sophos enable   Start automatically"
+            ;;
+    esac
+    exit $?
+fi
+
 case "$1" in
 
     start|"")
@@ -49,4 +94,3 @@ case "$1" in
         ;;
 
 esac
-
