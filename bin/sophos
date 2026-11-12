@@ -1,0 +1,52 @@
+#!/bin/bash
+
+SERVICE="sophos.service"
+
+case "$1" in
+
+    start|"")
+        systemctl --user start "$SERVICE"
+        ;;
+
+    stop)
+        systemctl --user stop "$SERVICE"
+        ;;
+
+    restart)
+        systemctl --user restart "$SERVICE"
+        ;;
+
+    status)
+        systemctl --user status "$SERVICE"
+        ;;
+
+    logs)
+        journalctl --user -u "$SERVICE" -f
+        ;;
+
+    retry|force)
+        PID=$(systemctl --user show -p MainPID --value "$SERVICE")
+        if [[ -z "$PID" || "$PID" == "0" ]]; then
+            echo "Service is not running; start it first."
+            exit 1
+        fi
+        kill -USR1 "$PID" && echo "Forced retry: searching for another account..."
+        ;;
+
+    enable)
+        systemctl --user enable "$SERVICE"
+        ;;
+
+    *)
+        echo "Usage:"
+        echo "  sophos          Start"
+        echo "  sophos stop     Stop"
+        echo "  sophos restart  Restart"
+        echo "  sophos retry    Force an immediate account re-search"
+        echo "  sophos status   Status"
+        echo "  sophos logs     Live logs"
+        echo "  sophos enable   Start automatically"
+        ;;
+
+esac
+

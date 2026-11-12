@@ -1,0 +1,12 @@
+[Unit]
+Description=Sophos Captive Portal Client
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.config/sophos/client.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
